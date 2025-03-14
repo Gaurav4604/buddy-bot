@@ -1,3 +1,5 @@
+from builtins import open  # Ensure built-in open is defined
+
 import Jetson.GPIO as GPIO
 import time
 import tkinter as tk
@@ -133,11 +135,11 @@ def stop_motors():
     pwm_right.ChangeDutyCycle(0)
 
 
-# Setup Tkinter (headless)
+# Set up Tkinter for headless key capture
 root = tk.Tk()
-root.withdraw()  # Hide the window since no display is needed
+root.withdraw()  # Hide the window
 
-# Dictionary to track pressed keys
+# Dictionary to track key states
 keys_pressed = {}
 
 
@@ -149,7 +151,7 @@ def on_key_release(event):
     keys_pressed[event.keysym.lower()] = False
 
 
-# Bind key events
+# Bind key press and release events
 root.bind("<KeyPress>", on_key_press)
 root.bind("<KeyRelease>", on_key_release)
 
@@ -186,7 +188,6 @@ def on_esc(event):
     root.quit()
 
 
-# Bind ESC to exit
 root.bind("<Escape>", on_esc)
 
 print("Control the robot using:")
@@ -199,7 +200,6 @@ print("   wd: forward with right bias")
 print("   space: stop motors")
 print("Press ESC to exit.")
 
-# Start motor update loop
 update_motors()
 
 try:
