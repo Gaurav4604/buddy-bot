@@ -1,8 +1,6 @@
-from builtins import open  # Ensure built-in open is defined
-
-import Jetson.GPIO as GPIO
+import curses
 import time
-import tkinter as tk
+import Jetson.GPIO as GPIO
 
 # Pin Definitions
 # Left Side Motors
@@ -135,78 +133,57 @@ def stop_motors():
     pwm_right.ChangeDutyCycle(0)
 
 
-# Set up Tkinter for headless key capture
-root = tk.Tk()
-root.withdraw()  # Hide the window
+def main(stdscr):
+    # Curses setup
+    curses.noecho()
+    curses.cbreak()
+    stdscr.nodelay(True)  # non-blocking input
+    stdscr.keypad(True)
 
-# Dictionary to track key states
-keys_pressed = {}
+    stdscr.addstr(0, 0, "Control the robot with WASD and space; ESC to exit")
 
+    # Main loop: poll for key press
+    while True:
+        c = stdscr.getch()
+        # Clear previous feedback
+        stdscr.move(1, 0)
+        stdscr.clrtoeol()
 
-def on_key_press(event):
-    keys_pressed[event.keysym.lower()] = True
+        if c != -1:
+            if c == 27:  # ESC key
+                stdscr.addstr(1, 0, "Exiting program")
+                stdscr.refresh()
+                break
+            elif c in (ord("w"), ord("W")):
+                # For simplicity, we'll only check one key at a time
+                stdscr.addstr(1, 0, "Moving forward")
+                move_forward(100)
+            elif c in (ord("s"), ord("S")):
+                stdscr.addstr(1, 0, "Moving backward")
+                move_backward(100)
+            elif c in (ord("a"), ord("A")):
+                stdscr.addstr(1, 0, "Turning left")
+                turn_left(100)
+            elif c in (ord("d"), ord("D")):
+                stdscr.addstr(1, 0, "Turning right")
+                turn_right(100)
+            elif c == ord(" "):
+                stdscr.addstr(1, 0, "Stopping motors")
+                stop_motors()
+        else:
+            # No key pressed; stop motors by default
+            stop_motors()
 
-
-def on_key_release(event):
-    keys_pressed[event.keysym.lower()] = False
-
-
-# Bind key press and release events
-root.bind("<KeyPress>", on_key_press)
-root.bind("<KeyRelease>", on_key_release)
-
-
-def update_motors():
-    if keys_pressed.get("space"):
-        stop_motors()
-        print("Stopping motors")
-    elif keys_pressed.get("w") and keys_pressed.get("a"):
-        move_forward_left()
-        print("Moving forward with left bias")
-    elif keys_pressed.get("w") and keys_pressed.get("d"):
-        move_forward_right()
-        print("Moving forward with right bias")
-    elif keys_pressed.get("w"):
-        move_forward(100)
-        print("Moving forward")
-    elif keys_pressed.get("s"):
-        move_backward(100)
-        print("Moving backward")
-    elif keys_pressed.get("a"):
-        turn_left(100)
-        print("Turning left")
-    elif keys_pressed.get("d"):
-        turn_right(100)
-        print("Turning right")
-    else:
-        stop_motors()
-    root.after(100, update_motors)
+        stdscr.refresh()
+        time.sleep(0.1)
 
 
-def on_esc(event):
-    print("Exiting program")
-    root.quit()
-
-
-root.bind("<Escape>", on_esc)
-
-print("Control the robot using:")
-print("   w: forward")
-print("   s: backward")
-print("   a: turn left")
-print("   d: turn right")
-print("   wa: forward with left bias")
-print("   wd: forward with right bias")
-print("   space: stop motors")
-print("Press ESC to exit.")
-
-update_motors()
-
-try:
-    root.mainloop()
-except KeyboardInterrupt:
-    print("Exiting program (KeyboardInterrupt)")
-finally:
-    pwm_left.stop()
-    pwm_right.stop()
-    GPIO.cleanup()
+if __name__ == "__main__":
+    try:
+        curses.wrapper(main)
+    except KeyboardInterrupt:
+        print("Exiting program (KeyboardInterrupt)")
+    finally:
+        pwm_left.stop()
+        pwm_right.stop()
+        GPIO.cleanup()
