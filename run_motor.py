@@ -1,6 +1,6 @@
 import Jetson.GPIO as GPIO
 import time
-import keyboard  # pip install keyboard
+import tkinter as tk
 
 # Pin Definitions
 # Left Side Motors
@@ -19,30 +19,30 @@ IN4_RIGHT = 23  # Right Motor 2 Backward
 
 # GPIO setup
 GPIO.setmode(GPIO.BOARD)
-
-# Setup PWM and Direction pins
-GPIO.setup(ENA_LEFT, GPIO.OUT)
-GPIO.setup(ENA_RIGHT, GPIO.OUT)
-GPIO.setup(IN1_LEFT, GPIO.OUT)
-GPIO.setup(IN2_LEFT, GPIO.OUT)
-GPIO.setup(IN3_LEFT, GPIO.OUT)
-GPIO.setup(IN4_LEFT, GPIO.OUT)
-GPIO.setup(IN1_RIGHT, GPIO.OUT)
-GPIO.setup(IN2_RIGHT, GPIO.OUT)
-GPIO.setup(IN3_RIGHT, GPIO.OUT)
-GPIO.setup(IN4_RIGHT, GPIO.OUT)
+pins = [
+    ENA_LEFT,
+    ENA_RIGHT,
+    IN1_LEFT,
+    IN2_LEFT,
+    IN3_LEFT,
+    IN4_LEFT,
+    IN1_RIGHT,
+    IN2_RIGHT,
+    IN3_RIGHT,
+    IN4_RIGHT,
+]
+for pin in pins:
+    GPIO.setup(pin, GPIO.OUT)
 
 # Initialize hardware PWM on ENA pins at 1kHz frequency
 pwm_left = GPIO.PWM(ENA_LEFT, 1000)
-pwm_left.start(0)  # Start with 0% duty cycle
+pwm_left.start(0)
 pwm_right = GPIO.PWM(ENA_RIGHT, 1000)
 pwm_right.start(0)
 
 
 # Movement Functions
 def move_forward(speed):
-    """Move forward with the same speed on both sides."""
-    # Set all motors to forward
     GPIO.output(IN1_LEFT, GPIO.HIGH)
     GPIO.output(IN2_LEFT, GPIO.LOW)
     GPIO.output(IN3_LEFT, GPIO.HIGH)
@@ -56,7 +56,6 @@ def move_forward(speed):
 
 
 def move_backward(speed):
-    """Move backward with the same speed on both sides."""
     GPIO.output(IN1_LEFT, GPIO.LOW)
     GPIO.output(IN2_LEFT, GPIO.HIGH)
     GPIO.output(IN3_LEFT, GPIO.LOW)
@@ -70,8 +69,6 @@ def move_backward(speed):
 
 
 def turn_left(speed):
-    """Turn left in place."""
-    # Reverse left motors, forward right motors
     GPIO.output(IN1_LEFT, GPIO.LOW)
     GPIO.output(IN2_LEFT, GPIO.HIGH)
     GPIO.output(IN3_LEFT, GPIO.LOW)
@@ -85,8 +82,6 @@ def turn_left(speed):
 
 
 def turn_right(speed):
-    """Turn right in place."""
-    # Forward left motors, reverse right motors
     GPIO.output(IN1_LEFT, GPIO.HIGH)
     GPIO.output(IN2_LEFT, GPIO.LOW)
     GPIO.output(IN3_LEFT, GPIO.HIGH)
@@ -100,7 +95,6 @@ def turn_right(speed):
 
 
 def move_forward_left():
-    """Move forward with a left bias: left motors at 100%, right motors at 80%."""
     GPIO.output(IN1_LEFT, GPIO.HIGH)
     GPIO.output(IN2_LEFT, GPIO.LOW)
     GPIO.output(IN3_LEFT, GPIO.HIGH)
@@ -114,7 +108,6 @@ def move_forward_left():
 
 
 def move_forward_right():
-    """Move forward with a right bias: left motors at 80%, right motors at 100%."""
     GPIO.output(IN1_LEFT, GPIO.HIGH)
     GPIO.output(IN2_LEFT, GPIO.LOW)
     GPIO.output(IN3_LEFT, GPIO.HIGH)
@@ -128,7 +121,6 @@ def move_forward_right():
 
 
 def stop_motors():
-    """Stop all motors."""
     GPIO.output(IN1_LEFT, GPIO.LOW)
     GPIO.output(IN2_LEFT, GPIO.LOW)
     GPIO.output(IN3_LEFT, GPIO.LOW)
@@ -141,8 +133,63 @@ def stop_motors():
     pwm_right.ChangeDutyCycle(0)
 
 
-# Main loop to process keyboard input
-print("Control the robot with:")
+# Setup Tkinter (headless)
+root = tk.Tk()
+root.withdraw()  # Hide the window since no display is needed
+
+# Dictionary to track pressed keys
+keys_pressed = {}
+
+
+def on_key_press(event):
+    keys_pressed[event.keysym.lower()] = True
+
+
+def on_key_release(event):
+    keys_pressed[event.keysym.lower()] = False
+
+
+# Bind key events
+root.bind("<KeyPress>", on_key_press)
+root.bind("<KeyRelease>", on_key_release)
+
+
+def update_motors():
+    if keys_pressed.get("space"):
+        stop_motors()
+        print("Stopping motors")
+    elif keys_pressed.get("w") and keys_pressed.get("a"):
+        move_forward_left()
+        print("Moving forward with left bias")
+    elif keys_pressed.get("w") and keys_pressed.get("d"):
+        move_forward_right()
+        print("Moving forward with right bias")
+    elif keys_pressed.get("w"):
+        move_forward(100)
+        print("Moving forward")
+    elif keys_pressed.get("s"):
+        move_backward(100)
+        print("Moving backward")
+    elif keys_pressed.get("a"):
+        turn_left(100)
+        print("Turning left")
+    elif keys_pressed.get("d"):
+        turn_right(100)
+        print("Turning right")
+    else:
+        stop_motors()
+    root.after(100, update_motors)
+
+
+def on_esc(event):
+    print("Exiting program")
+    root.quit()
+
+
+# Bind ESC to exit
+root.bind("<Escape>", on_esc)
+
+print("Control the robot using:")
 print("   w: forward")
 print("   s: backward")
 print("   a: turn left")
@@ -150,51 +197,15 @@ print("   d: turn right")
 print("   wa: forward with left bias")
 print("   wd: forward with right bias")
 print("   space: stop motors")
-print("Press Ctrl+C to exit.")
+print("Press ESC to exit.")
+
+# Start motor update loop
+update_motors()
 
 try:
-    while True:
-        # Stop if space is pressed
-        if keyboard.is_pressed("space"):
-            stop_motors()
-            print("Stopping motors")
-            time.sleep(0.1)
-        # Forward with bias to the left if 'w' and 'a' are pressed together
-        elif keyboard.is_pressed("w") and keyboard.is_pressed("a"):
-            move_forward_left()
-            print("Moving forward with left bias")
-            time.sleep(0.1)
-        # Forward with bias to the right if 'w' and 'd' are pressed together
-        elif keyboard.is_pressed("w") and keyboard.is_pressed("d"):
-            move_forward_right()
-            print("Moving forward with right bias")
-            time.sleep(0.1)
-        # Regular forward
-        elif keyboard.is_pressed("w"):
-            move_forward(100)
-            print("Moving forward")
-            time.sleep(0.1)
-        # Regular backward
-        elif keyboard.is_pressed("s"):
-            move_backward(100)
-            print("Moving backward")
-            time.sleep(0.1)
-        # Turn left in place
-        elif keyboard.is_pressed("a"):
-            turn_left(100)
-            print("Turning left")
-            time.sleep(0.1)
-        # Turn right in place
-        elif keyboard.is_pressed("d"):
-            turn_right(100)
-            print("Turning right")
-            time.sleep(0.1)
-        else:
-            # If no key is pressed, stop the motors
-            stop_motors()
-            time.sleep(0.1)
+    root.mainloop()
 except KeyboardInterrupt:
-    print("Exiting program")
+    print("Exiting program (KeyboardInterrupt)")
 finally:
     pwm_left.stop()
     pwm_right.stop()
