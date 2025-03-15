@@ -175,7 +175,7 @@ def main(stdscr):
             stop_motors()
 
         stdscr.refresh()
-        time.sleep(0.1)
+        time.sleep(0.05)
 
 
 if __name__ == "__main__":
