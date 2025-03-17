@@ -1,6 +1,9 @@
 import curses
 import time
+import asyncio
+import json
 import Jetson.GPIO as GPIO
+from buddy_bot_communication.client import Node
 
 # Pin Definitions
 # Left Side Motors
@@ -94,32 +97,6 @@ def turn_right(speed):
     pwm_right.ChangeDutyCycle(speed)
 
 
-def move_forward_left():
-    GPIO.output(IN1_LEFT, GPIO.HIGH)
-    GPIO.output(IN2_LEFT, GPIO.LOW)
-    GPIO.output(IN3_LEFT, GPIO.HIGH)
-    GPIO.output(IN4_LEFT, GPIO.LOW)
-    GPIO.output(IN1_RIGHT, GPIO.HIGH)
-    GPIO.output(IN2_RIGHT, GPIO.LOW)
-    GPIO.output(IN3_RIGHT, GPIO.HIGH)
-    GPIO.output(IN4_RIGHT, GPIO.LOW)
-    pwm_left.ChangeDutyCycle(100)
-    pwm_right.ChangeDutyCycle(80)
-
-
-def move_forward_right():
-    GPIO.output(IN1_LEFT, GPIO.HIGH)
-    GPIO.output(IN2_LEFT, GPIO.LOW)
-    GPIO.output(IN3_LEFT, GPIO.HIGH)
-    GPIO.output(IN4_LEFT, GPIO.LOW)
-    GPIO.output(IN1_RIGHT, GPIO.HIGH)
-    GPIO.output(IN2_RIGHT, GPIO.LOW)
-    GPIO.output(IN3_RIGHT, GPIO.HIGH)
-    GPIO.output(IN4_RIGHT, GPIO.LOW)
-    pwm_left.ChangeDutyCycle(80)
-    pwm_right.ChangeDutyCycle(100)
-
-
 def stop_motors():
     GPIO.output(IN1_LEFT, GPIO.LOW)
     GPIO.output(IN2_LEFT, GPIO.LOW)
@@ -133,57 +110,88 @@ def stop_motors():
     pwm_right.ChangeDutyCycle(0)
 
 
-def main(stdscr):
-    # Curses setup
-    curses.noecho()
-    curses.cbreak()
-    stdscr.nodelay(True)  # non-blocking input
-    stdscr.keypad(True)
+class RobotController:
+    def __init__(self):
+        # Track active control keys
+        self.active_keys = set()
+        self.speed = 100
 
-    stdscr.addstr(0, 0, "Control the robot with WASD and space; ESC to exit")
+    def handle_command(self, command_data):
+        """Handle incoming command from websocket"""
+        command = command_data.get("command")
+        status = command_data.get("status")
 
-    # Main loop: poll for key press
-    while True:
-        c = stdscr.getch()
-        # Clear previous feedback
-        stdscr.move(1, 0)
-        stdscr.clrtoeol()
+        # Update active keys set
+        if status == "down":
+            self.active_keys.add(command)
+        elif status == "release":
+            self.active_keys.discard(command)
 
-        if c != -1:
-            if c == 27:  # ESC key
-                stdscr.addstr(1, 0, "Exiting program")
-                stdscr.refresh()
-                break
-            elif c in (ord("w"), ord("W")):
-                # For simplicity, we'll only check one key at a time
-                stdscr.addstr(1, 0, "Moving forward")
-                move_forward(100)
-            elif c in (ord("s"), ord("S")):
-                stdscr.addstr(1, 0, "Moving backward")
-                move_backward(100)
-            elif c in (ord("a"), ord("A")):
-                stdscr.addstr(1, 0, "Turning left")
-                turn_left(100)
-            elif c in (ord("d"), ord("D")):
-                stdscr.addstr(1, 0, "Turning right")
-                turn_right(100)
-            elif c == ord(" "):
-                stdscr.addstr(1, 0, "Stopping motors")
-                stop_motors()
+        # Apply movement based on active keys
+        self.update_movement()
+
+    def update_movement(self):
+        """Update robot movement based on currently active keys"""
+        if not self.active_keys:
+            stop_motors()
+            return
+
+        # Priority: if multiple keys are pressed, choose one based on priority
+        if "w" in self.active_keys:
+            move_forward(self.speed)
+        elif "s" in self.active_keys:
+            move_backward(self.speed)
+        elif "a" in self.active_keys:
+            turn_left(self.speed)
+        elif "d" in self.active_keys:
+            turn_right(self.speed)
         else:
-            # No key pressed; stop motors by default
             stop_motors()
 
-        stdscr.refresh()
-        time.sleep(0.05)
 
-
-if __name__ == "__main__":
+async def control_handler(data, robot_controller):
+    """Handle incoming control commands"""
     try:
-        curses.wrapper(main)
+        command_data = json.loads(data)
+        print(f"Received: {command_data}")
+        robot_controller.handle_command(command_data)
+    except json.JSONDecodeError:
+        print(f"Invalid JSON data: {data}")
+    except Exception as e:
+        print(f"Error handling command: {e}")
+
+
+async def main():
+    robot_controller = RobotController()
+    node = Node("http://172.22.7.122:7000")
+
+    try:
+        await node.connect()
+        print("Connected to server")
+
+        # Create a partial function to pass the robot_controller
+        handler = lambda data: control_handler(data, robot_controller)
+
+        # Subscribe to control topic
+        await node.subscribe("/control", handler)
+
+        # Keep the program running
+        while True:
+            await asyncio.sleep(0.1)
+
     except KeyboardInterrupt:
-        print("Exiting program (KeyboardInterrupt)")
+        print("KeyboardInterrupt received. Shutting down gracefully...")
+    except Exception as e:
+        print(f"Error in main loop: {e}")
     finally:
+        # Clean up
+        stop_motors()
         pwm_left.stop()
         pwm_right.stop()
         GPIO.cleanup()
+        await node.disconnect()
+        print("Disconnected and cleaned up")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
