@@ -31,6 +31,7 @@ pins = [
 for pin in pins:
     GPIO.setup(pin, GPIO.OUT)
 
+
 # Movement Functions
 def move_forward(speed):
     GPIO.output(IN1_LEFT, GPIO.HIGH)
