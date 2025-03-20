@@ -1,5 +1,3 @@
-import curses
-import time
 import asyncio
 import json
 import Jetson.GPIO as GPIO
@@ -7,14 +5,12 @@ from buddy_bot_communication.client import Node
 
 # Pin Definitions
 # Left Side Motors
-ENA_LEFT = 32  # PWM for Left Side Motors
 IN1_LEFT = 12  # Left Motor 1 Forward
 IN2_LEFT = 11  # Left Motor 1 Backward
 IN3_LEFT = 22  # Left Motor 2 Forward
 IN4_LEFT = 21  # Left Motor 2 Backward
 
 # Right Side Motors
-ENA_RIGHT = 33  # PWM for Right Side Motors
 IN1_RIGHT = 15  # Right Motor 1 Forward
 IN2_RIGHT = 16  # Right Motor 1 Backward
 IN3_RIGHT = 24  # Right Motor 2 Forward
@@ -23,8 +19,6 @@ IN4_RIGHT = 23  # Right Motor 2 Backward
 # GPIO setup
 GPIO.setmode(GPIO.BOARD)
 pins = [
-    ENA_LEFT,
-    ENA_RIGHT,
     IN1_LEFT,
     IN2_LEFT,
     IN3_LEFT,
@@ -37,13 +31,6 @@ pins = [
 for pin in pins:
     GPIO.setup(pin, GPIO.OUT)
 
-# Initialize hardware PWM on ENA pins at 1kHz frequency
-pwm_left = GPIO.PWM(ENA_LEFT, 1000)
-pwm_left.start(0)
-pwm_right = GPIO.PWM(ENA_RIGHT, 1000)
-pwm_right.start(0)
-
-
 # Movement Functions
 def move_forward(speed):
     GPIO.output(IN1_LEFT, GPIO.HIGH)
@@ -54,8 +41,6 @@ def move_forward(speed):
     GPIO.output(IN2_RIGHT, GPIO.LOW)
     GPIO.output(IN3_RIGHT, GPIO.HIGH)
     GPIO.output(IN4_RIGHT, GPIO.LOW)
-    pwm_left.ChangeDutyCycle(speed)
-    pwm_right.ChangeDutyCycle(speed)
 
 
 def move_backward(speed):
@@ -67,8 +52,6 @@ def move_backward(speed):
     GPIO.output(IN2_RIGHT, GPIO.HIGH)
     GPIO.output(IN3_RIGHT, GPIO.LOW)
     GPIO.output(IN4_RIGHT, GPIO.HIGH)
-    pwm_left.ChangeDutyCycle(speed)
-    pwm_right.ChangeDutyCycle(speed)
 
 
 def turn_left(speed):
@@ -80,8 +63,6 @@ def turn_left(speed):
     GPIO.output(IN2_RIGHT, GPIO.LOW)
     GPIO.output(IN3_RIGHT, GPIO.HIGH)
     GPIO.output(IN4_RIGHT, GPIO.LOW)
-    pwm_left.ChangeDutyCycle(speed)
-    pwm_right.ChangeDutyCycle(speed)
 
 
 def turn_right(speed):
@@ -93,8 +74,6 @@ def turn_right(speed):
     GPIO.output(IN2_RIGHT, GPIO.HIGH)
     GPIO.output(IN3_RIGHT, GPIO.LOW)
     GPIO.output(IN4_RIGHT, GPIO.HIGH)
-    pwm_left.ChangeDutyCycle(speed)
-    pwm_right.ChangeDutyCycle(speed)
 
 
 def stop_motors():
@@ -106,8 +85,6 @@ def stop_motors():
     GPIO.output(IN2_RIGHT, GPIO.LOW)
     GPIO.output(IN3_RIGHT, GPIO.LOW)
     GPIO.output(IN4_RIGHT, GPIO.LOW)
-    pwm_left.ChangeDutyCycle(0)
-    pwm_right.ChangeDutyCycle(0)
 
 
 class RobotController:
@@ -149,31 +126,27 @@ class RobotController:
             stop_motors()
 
 
-async def control_handler(data, robot_controller):
-    """Handle incoming control commands"""
-    try:
-        command_data = json.loads(data)
-        print(f"Received: {command_data}")
-        robot_controller.handle_command(command_data)
-    except json.JSONDecodeError:
-        print(f"Invalid JSON data: {data}")
-    except Exception as e:
-        print(f"Error handling command: {e}")
-
-
 async def main():
     robot_controller = RobotController()
     node = Node("http://172.22.7.122:7000")
+
+    # Define handler function with closure to access robot_controller
+    async def control_handler(data):
+        try:
+            command_data = json.loads(data)
+            print(f"Received: {command_data}")
+            robot_controller.handle_command(command_data)
+        except json.JSONDecodeError:
+            print(f"Invalid JSON data: {data}")
+        except Exception as e:
+            print(f"Error handling command: {e}")
 
     try:
         await node.connect()
         print("Connected to server")
 
-        # Create a partial function to pass the robot_controller
-        handler = lambda data: control_handler(data, robot_controller)
-
-        # Subscribe to control topic
-        await node.subscribe("/control", handler)
+        # Subscribe to control topic with our handler
+        await node.subscribe("/control", control_handler)
 
         # Keep the program running
         while True:
@@ -186,8 +159,6 @@ async def main():
     finally:
         # Clean up
         stop_motors()
-        pwm_left.stop()
-        pwm_right.stop()
         GPIO.cleanup()
         await node.disconnect()
         print("Disconnected and cleaned up")
@@ -195,3 +166,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
