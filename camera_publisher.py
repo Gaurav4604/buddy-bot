@@ -83,7 +83,9 @@ async def main():
     server_url = "http://172.22.7.122:7000"  # Replace with your server address
     camera_publisher = CameraPublisher(server_url)
 
-    await camera_publisher.connect()
+    await camera_publisher.connect(
+        ["/control", "/vision-channel-1", "/vision-channel-2", "/data"]
+    )
     camera_publisher.start_pipeline()
 
     try:
