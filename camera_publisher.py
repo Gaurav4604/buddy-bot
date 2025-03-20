@@ -21,8 +21,8 @@ class CameraPublisher:
 
         self.running = False
 
-    async def connect(self):
-        await self.node.connect()
+    async def connect(self, channels: list):
+        await self.node.connect(channels)
 
     async def disconnect(self):
         await self.node.disconnect()
