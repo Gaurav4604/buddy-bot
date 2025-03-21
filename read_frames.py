@@ -13,6 +13,7 @@ from buddy_bot_communication.client import Node
 # Optional: print cv2 module location to verify that it's using the headless package
 print("cv2 library loaded from:", cv2.__file__)
 
+
 class CameraPublisher:
     def __init__(self, server_url):
         self.node = Node(server_url)
@@ -58,8 +59,12 @@ class CameraPublisher:
                 right_image = np.asanyarray(right_frame.get_data())
 
                 # Encode images as JPEG
-                _, left_jpeg = cv2.imencode(".jpg", left_image, [cv2.IMWRITE_JPEG_QUALITY, 80])
-                _, right_jpeg = cv2.imencode(".jpg", right_image, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                _, left_jpeg = cv2.imencode(
+                    ".jpg", left_image, [cv2.IMWRITE_JPEG_QUALITY, 80]
+                )
+                _, right_jpeg = cv2.imencode(
+                    ".jpg", right_image, [cv2.IMWRITE_JPEG_QUALITY, 80]
+                )
 
                 # Convert to base64 for transmission
                 left_base64 = base64.b64encode(left_jpeg).decode("utf-8")
@@ -70,7 +75,7 @@ class CameraPublisher:
                 await self.node.publish("/vision-channel-2", {"image": right_base64})
 
                 # Add a small delay to control the frame rate
-                await asyncio.sleep(0.03)  # ~30 FPS
+                await asyncio.sleep(0.05)  # ~30 FPS
 
             except Exception as e:
                 print(f"Error publishing frames: {e}")
@@ -102,4 +107,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
