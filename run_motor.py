@@ -143,7 +143,7 @@ async def main():
             print(f"Error handling command: {e}")
 
     try:
-        await node.connect()
+        await node.connect(["/control", "/vision-channel-1", "/vision-channel-2", "/data"])
         print("Connected to server")
 
         # Subscribe to control topic with our handler
