@@ -20,7 +20,7 @@ IN4_RIGHT = 23  # Right Motor 2 Backward
 GPIO.setmode(GPIO.BOARD)
 
 # PWM Pins
-GPIO.setup(ENA_LEFT, GPIO.OUT)   # Enable Pin for Left Motors
+GPIO.setup(ENA_LEFT, GPIO.OUT)  # Enable Pin for Left Motors
 GPIO.setup(ENA_RIGHT, GPIO.OUT)  # Enable Pin for Right Motors
 
 # Left Side Direction Pins
@@ -42,6 +42,7 @@ pwm_left.start(0)  # Start with 0% duty cycle
 pwm_right = GPIO.PWM(ENA_RIGHT, 1000)  # Right Motors PWM
 pwm_right.start(0)
 
+
 # Movement Functions
 def move_forward(speed):
     """Move forward by running all motors forward."""
@@ -58,6 +59,7 @@ def move_forward(speed):
     pwm_left.ChangeDutyCycle(speed)
     pwm_right.ChangeDutyCycle(speed)
 
+
 def move_backward(speed):
     """Move backward by running all motors backward."""
     GPIO.output(IN1_LEFT, GPIO.LOW)
@@ -72,6 +74,7 @@ def move_backward(speed):
 
     pwm_left.ChangeDutyCycle(speed)
     pwm_right.ChangeDutyCycle(speed)
+
 
 def turn_left(speed):
     """Turn left by reversing left motors and running right motors forward."""
@@ -88,6 +91,7 @@ def turn_left(speed):
     pwm_left.ChangeDutyCycle(speed)
     pwm_right.ChangeDutyCycle(speed)
 
+
 def turn_right(speed):
     """Turn right by reversing right motors and running left motors forward."""
     GPIO.output(IN1_LEFT, GPIO.HIGH)
@@ -103,6 +107,7 @@ def turn_right(speed):
     pwm_left.ChangeDutyCycle(speed)
     pwm_right.ChangeDutyCycle(speed)
 
+
 def stop_motors():
     """Stop all motors."""
     GPIO.output(IN1_LEFT, GPIO.LOW)
@@ -117,6 +122,7 @@ def stop_motors():
 
     pwm_left.ChangeDutyCycle(0)
     pwm_right.ChangeDutyCycle(0)
+
 
 # Main Program
 try:
@@ -148,4 +154,3 @@ finally:
     pwm_left.stop()  # Stop Left PWM
     pwm_right.stop()  # Stop Right PWM
     GPIO.cleanup()  # Reset GPIO pins to default state
-
